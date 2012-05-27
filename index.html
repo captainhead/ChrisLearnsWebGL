@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>WebGL Playground</title>
+
+	<style>
+		@import url(http://fonts.googleapis.com/css?family=Press+Start+2P|Open_Sans);
+
+		html,body,h1,h2,h3 {
+			margin:0;
+			padding:0;
+		}
+
+
+		body{
+			background-color: #555555;
+
+			color: #333333;
+			font-family: "Open Sans", sans-serif;
+		}
+
+
+		#content_area{
+			width: 768px;
+
+			margin: 20px auto;
+			padding: 32px 0;
+			border-radius: 12px;
+
+			text-align: center;
+
+			background-color: #DDDDDD;
+			box-shadow: 0 0 20px 2px #000000;
+		}
+
+			#content_area h1{
+				margin-bottom: 32px;
+				font-family: "Press Start 2P", sans-serif;
+			}
+
+			#content_area footer{
+				margin-top: 32px;
+			}
+
+
+		#webgl_canvas{
+			width: 640px;
+			height: 480px;
+
+			box-shadow: 0 0 14px 2px #555555;
+		}
+	</style>
+
+	<script src="gl-matrix.js"></script>
+	<script src="webgl.js"></script>
+
+	<!-- These are not javascript, they are GLSL shader programs! Only here for convenience at the moment-->
+	<script id="shader-fs" type="x-shader/x-fragment">
+		precision mediump float;
+
+		void main(void){
+			gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+		}
+	</script>
+	<script id="shader-vs" type="x-shader/x-vertex">
+		attribute vec3 aVertexPosition;
+
+		uniform mat4 uMVMatrix;
+		uniform mat4 uPMatrix;
+
+		void main(void){
+			gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+		}
+	</script>
+</head>
+
+
+<body onload="webgl_start();">
+<div id="content_area">
+	<h1>WebGL Playground</h1>
+  <canvas id="webgl_canvas" width="640" height="480">If you're reading this, you need a modern browser.</canvas>
+	<footer>
+		&copy; Chris Little
+	</footer>
+</div>
+</body>
+</html>
