@@ -5,10 +5,16 @@ var triangleVertexColorBuffer;
 var squareVertexPositionBuffer;
 var squareVertexColorBuffer;
 
+var mvMatrixStack = []; // Save and restore previous modelview matrices
 var mvMatrix = mat4.create(); // Modelview matrix
 var pMatrix = mat4.create(); // Projection matrix
 
 var shaderProgram;
+
+var rTri = 0;
+var rSquare = 0;
+
+var lastTime = 0;
 
 
 function initGL(canvas){
@@ -133,26 +139,56 @@ function getShader(gl, id){
 }
 
 
+
+
+
 function setMatrixUniforms(){
 	gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
 	gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
 }
 
 
-
-
-function webgl_start() {
-	var canvas = document.getElementById("webgl_canvas");
-	initGL(canvas);
-	initShaders();
-	initBuffers();
-
-	gl.clearColor(0.33, 0.33, 0.33, 1.0); // Approx hex colour of #555555
-	gl.enable(gl.DEPTH_TEST);
-
-	drawScene();
+function degToRad(degrees){
+	return degrees * (Math.PI / 180);
 }
 
+
+
+function mvPushMatrix(){
+	var copy = mat4.create();
+	mat4.set(mvMatrix, copy);
+	mvMatrixStack.push(copy);
+}
+
+function mvPopMatrix(){
+	if(mvMatrixStack.length == 0){
+		throw "mvMatrix stack is empty!";
+	}
+	mvMatrix = mvMatrixStack.pop();
+}
+
+
+
+
+
+function tick(){
+	// Schedule a redraw to occur once the current frame has finished drawing
+	window.requestAnimationFrame(tick);
+
+	drawScene();
+	animate();
+}
+
+function animate(){
+	var timeNow = new Date().getTime();
+	if(lastTime != 0){
+		var elapsed = timeNow - lastTime;
+
+		rTri += (90 * elapsed) / 1000.0;
+		rSquare += (75 * elapsed) / 1000.0;
+	}
+	lastTime = timeNow;
+}
 
 function drawScene(){
 	gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
@@ -165,6 +201,9 @@ function drawScene(){
 	// Draw triangle buffer
 	mat4.translate(mvMatrix, [-1.5, 0.0, -7.0]);
 
+	mvPushMatrix();
+	mat4.rotate(mvMatrix, degToRad(rTri), [0,1,0]);
+
 	gl.bindBuffer(gl.ARRAY_BUFFER, triangleVertexPositionBuffer);
 	gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, triangleVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
@@ -175,8 +214,13 @@ function drawScene(){
 
 	gl.drawArrays(gl.TRIANGLES, 0, triangleVertexPositionBuffer.numItems);
 
+	mvPopMatrix();
+
 	// Draw square buffer
 	mat4.translate(mvMatrix, [3.0, 0.0, 0.0]);
+
+	mvPushMatrix();
+	mat4.rotate(mvMatrix, degToRad(rSquare), [1,0,0]);
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
 	gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
@@ -187,4 +231,44 @@ function drawScene(){
 	setMatrixUniforms();
 
 	gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
+
+	mvPopMatrix();
+}
+
+function webgl_start() {
+	var canvas = document.getElementById("webgl_canvas");
+	initGL(canvas);
+	initShaders();
+	initBuffers();
+
+	gl.clearColor(0.33, 0.33, 0.33, 1.0); // Approx hex colour of #555555
+	gl.enable(gl.DEPTH_TEST);
+
+	// Paul Irish's gist to polyfill window.requestAnimationFrame
+	(function() {
+	    var lastTime = 0;
+	    var vendors = ['ms', 'moz', 'webkit', 'o'];
+	    for(var x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
+	        window.requestAnimationFrame = window[vendors[x]+'RequestAnimationFrame'];
+	        window.cancelAnimationFrame = window[vendors[x]+'CancelAnimationFrame']
+	                                   || window[vendors[x]+'CancelRequestAnimationFrame'];
+	    }
+
+	    if (!window.requestAnimationFrame)
+	        window.requestAnimationFrame = function(callback, element) {
+	            var currTime = new Date().getTime();
+	            var timeToCall = Math.max(0, 16 - (currTime - lastTime));
+	            var id = window.setTimeout(function() { callback(currTime + timeToCall); },
+	              timeToCall);
+	            lastTime = currTime + timeToCall;
+	            return id;
+	        };
+
+	    if (!window.cancelAnimationFrame)
+	        window.cancelAnimationFrame = function(id) {
+	            clearTimeout(id);
+	        };
+	}());
+
+	tick();
 }
