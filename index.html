@@ -20,6 +20,11 @@
 		}
 
 
+		h1,h2,h3{
+			font-family: "Press Start 2P", sans-serif;
+		}
+
+
 		#content_area{
 			width: 768px;
 
@@ -35,11 +40,45 @@
 
 			#content_area h1{
 				margin-bottom: 32px;
-				font-family: "Press Start 2P", sans-serif;
 			}
 
 			#content_area footer{
 				margin-top: 32px;
+			}
+
+
+		#instructions_area{
+			display:inline-block;
+			width: 600px;
+
+			padding-top: 32px;
+
+			text-align: left;
+
+			font-size: 18px;
+		}
+
+			#instructions_area dt, #instructions_area dd{
+				padding: 5px 0;
+			}
+
+			#instructions_area dt{
+				float: left;
+				clear: left;
+				width: 150px;
+
+				text-align: right;
+
+				font-weight: bold;
+			}
+			#instructions_area dt:after{
+				content: ":";
+			}
+
+			#instructions_area dd{
+				margin-left: 170px;
+
+				color: #777777;
 			}
 
 
@@ -86,7 +125,21 @@
 <body onload="webgl_start();">
 <div id="content_area">
 	<h1>WebGL Playground</h1>
-  <canvas id="webgl_canvas" width="640" height="480">If you're reading this, you need a modern browser.</canvas>
+
+  <canvas id="webgl_canvas" width="640" height="480">If you're reading this, you need a modern browser that supports HTML5 canvas.</canvas>
+
+  <div id="instructions_area">
+	  <h3>Controls</h3>
+	  <dl>
+	  	<dt>F</dt>
+	  		<dd>Switch texture sampling method (nearest, linear, linear mipmap).</dd>
+	  	<dt>Page Up/Down</dt>
+	  		<dd>Zoom Out/In (move the cube farther/closer).</dd>
+	  	<dt>Arrow Keys</dt>
+	  		<dd>Rotate the cube.</dd>
+	  </dl>
+	 </div>
+
 	<footer>
 		&copy; Chris Little
 	</footer>
