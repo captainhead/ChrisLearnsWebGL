@@ -6,101 +6,28 @@ var pMatrix = mat4.create(); // Projection matrix
 
 var shaderProgram;
 
+var worldVertexPositionBuffer = null;
+var worldVertexTextureCoordBuffer = null;
+
 var lastTime = 0;
 
 var currentlyPressedKeys = {};
 
-var stars = [];
-var starTexture;
+var pitch = 0;
+var pitchRate = 0;
 
-var starVertexPositionBuffer;
-var starVertexTextureCoordBuffer;
+var yaw = 0;
+var yawRate = 0;
 
-var zoom = -15;
-var tilt = 90;
-var spin = 0;
+var xPos = 0;
+var yPos = 0.4;
+var zPos = 0;
 
-var effectiveFPMS = 60/1000;
+var speed = 0;
 
-
-
-function Star(startingDistance, rotationSpeed){
-	this.angle = 0;
-	this.dist = startingDistance;
-	this.rotationSpeed = rotationSpeed;
-
-	// Set the colors to a starting value
-	this.randomizeColors();
-}
-Star.prototype.draw = function(tilt, spin, twinkle){
-	mvPushMatrix();
-	// Move to star's position
-	mat4.rotate(mvMatrix, degToRad(this.angle), [0.0, 1.0, 0.0]);
-	mat4.translate(mvMatrix, [this.dist, 0.0, 0.0]);
-	// Rotate star to face viewer
-	mat4.rotate(mvMatrix, degToRad(-this.angle), [0.0,1.0,0.0]);
-	mat4.rotate(mvMatrix, degToRad(-tilt), [1.0,0.0,0.0]);
-
-	if(twinkle){
-		// draw a non rotating "tinkling colour" star
-		gl.uniform3f(shaderProgram.colorUniform, this.twinkleR, this.twinkleG, this.twinkleB);
-		drawStar();
-	}
-
-	// Spin around the z-axis
-	mat4.rotate(mvMatrix, degToRad(spin), [0.0,0.0,1.0]);
-
-	// Draw the main star colour
-	gl.uniform3f(shaderProgram.colorUniform, this.r, this.g, this.b);
-	drawStar();
-
-	mvPopMatrix();
-};
-Star.prototype.animate = function(elapsedTime){
-	this.angle += this.rotationSpeed * effectiveFPMS * elapsedTime;
-
-	// Move star inward toward center, then reset to outside
-	this.dist -= 0.01 * effectiveFPMS * elapsedTime;
-	if(this.dist < 0.0){
-		this.dist += 5.0;
-		this.randomizeColors();
-	}
-};
-Star.prototype.randomizeColors = function(){
-	this.r = Math.random()*0.8;
-	this.g = Math.random()*0.8;
-	this.b = Math.random()*0.8;
-
-	this.twinkleR = Math.random()*0.8;
-	this.twinkleG = Math.random()*0.8;
-	this.twinkleB = Math.random()*0.8;
-}
-
-function drawStar(){
-	gl.activeTexture(gl.TEXTURE0);
-	gl.bindTexture(gl.TEXTURE_2D, starTexture);
-	gl.uniform1i(shaderProgram.samplerUniform, 0);
-
-	gl.bindBuffer(gl.ARRAY_BUFFER, starVertexTextureCoordBuffer);
-	gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, starVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-	gl.bindBuffer(gl.ARRAY_BUFFER, starVertexPositionBuffer);
-	gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, starVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-	setMatrixUniforms();
-	gl.drawArrays(gl.TRIANGLE_STRIP, 0, starVertexPositionBuffer.numItems);
-}
+var joggingAngle = 0;
 
 
-
-
-function initWorldObjects(){
-	var numStars = 50;
-
-	for(var i=0; i<numStars; i++){
-		stars.push(new Star((i/numStars) * 5.0, i/numStars));
-	}
-}
 
 
 function initGL(canvas){
@@ -113,6 +40,7 @@ function initGL(canvas){
 		alert("GL init failed!");
 	}
 }
+
 
 function initShaders(){
 	var fragmentShader = getShader(gl, "shader-fs");
@@ -138,59 +66,7 @@ function initShaders(){
 	shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
 	shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
 	shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
-	shaderProgram.colorUniform = gl.getUniformLocation(shaderProgram, "uColor");
 }
-
-function initBuffers(){
-	starVertexPositionBuffer = gl.createBuffer();
-	gl.bindBuffer(gl.ARRAY_BUFFER, starVertexPositionBuffer);
-	var vertices = [
-		-1.0, -1.0, 0.0,
-		1.0, -1.0, 0.0,
-		-1.0, 1.0, 0.0,
-		1.0, 1.0, 0.0
-	];
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-	starVertexPositionBuffer.itemSize = 3;
-	starVertexPositionBuffer.numItems = 4;
-
-	starVertexTextureCoordBuffer = gl.createBuffer();
-	gl.bindBuffer(gl.ARRAY_BUFFER, starVertexTextureCoordBuffer);
-	var textureCoords = [
-		0.0, 0.0,
-		1.0, 0.0,
-		0.0, 1.0,
-		1.0, 1.0
-	];
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
-	starVertexTextureCoordBuffer.itemSize = 2;
-	starVertexTextureCoordBuffer.numItems = 4;
-}
-
-function initTexture(){
-	starTexture = gl.createTexture();
-	starTexture.image = new Image();
-	starTexture.image.onload = function(){
-		handleLoadedTexture(starTexture);
-	}
-
-	starTexture.image.src = "star.gif";
-}
-
-
-
-function handleLoadedTexture(texture){
-	gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-
-	gl.bindTexture(gl.TEXTURE_2D, texture);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-
-	gl.bindTexture(gl.TEXTURE_2D, null);
-}
-
-
 
 function getShader(gl, id){
 	var shaderScript = document.getElementById(id);
@@ -227,18 +103,84 @@ function getShader(gl, id){
 }
 
 
+function initTexture(){
+	stoneTexture = gl.createTexture();
+	stoneTexture.image = new Image();
+	stoneTexture.image.onload = function(){
+		handleLoadedTexture(stoneTexture);
+	}
+
+	stoneTexture.image.src = "stone_texture.jpg";
+}
+
+function handleLoadedTexture(texture){
+	gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+	gl.bindTexture(gl.TEXTURE_2D, texture);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+	gl.generateMipmap(gl.TEXTURE_2D);
+
+	gl.bindTexture(gl.TEXTURE_2D, null);
+}
+
+
+
+
+function loadWorld(){
+	var request = new XMLHttpRequest();
+	request.open("GET", "world.txt");
+	request.onreadystatechange = function(){
+		if(request.readyState == 4){
+			handleLoadedWorld(request.responseText);
+		}
+	}
+	request.send();
+}
+
+function handleLoadedWorld(data){
+	var lines = data.split("\n");
+	var vertexCount = 0;
+	var vertexPositions = [];
+	var vertexTextureCoords = [];
+	for (var i in lines){
+		var vals = lines[i].replace(/^\s+/, "").split(/\s+/);
+		if(vals.length == 5 && vals[0] != "//"){
+			vertexPositions.push(parseFloat(vals[0]));
+			vertexPositions.push(parseFloat(vals[1]));
+			vertexPositions.push(parseFloat(vals[2]));
+
+			vertexTextureCoords.push(parseFloat(vals[3]));
+			vertexTextureCoords.push(parseFloat(vals[4]));
+
+			vertexCount += 1;
+		}
+	}
+
+	worldVertexPositionBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, worldVertexPositionBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexPositions), gl.STATIC_DRAW);
+	worldVertexPositionBuffer.itemSize = 3;
+	worldVertexPositionBuffer.numItems = vertexCount;
+
+
+	worldVertexTextureCoordBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, worldVertexTextureCoordBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexTextureCoords), gl.STATIC_DRAW);
+	worldVertexTextureCoordBuffer.itemSize = 2;
+	worldVertexTextureCoordBuffer.numItems = vertexCount;
+
+	document.getElementById("loadingtext").textContent = "";
+}
+
+
 
 
 
 function setMatrixUniforms(){
 	gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
 	gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
-
-	// Reverse the effects of the projection and modelview matrix have on the normal vector
-	var normalMatrix = mat3.create();
-	mat4.toInverseMat3(mvMatrix, normalMatrix);
-	mat3.transpose(normalMatrix);
-	gl.uniformMatrix3fv(shaderProgram.nMatrixUniform, false, normalMatrix);
 }
 
 
@@ -274,58 +216,44 @@ function tick(){
 	animate();
 }
 
+
 function handleKeys(){
 	if(currentlyPressedKeys[33]){
 		// Page up
-		zoom -= 0.1;
+		pitchRate = 0.1;
 	}
-	if(currentlyPressedKeys[34]){
+	else if(currentlyPressedKeys[34]){
 		// Page Down
-		zoom += 0.1;
+		pitchRate = -0.1;
 	}
-	if(currentlyPressedKeys[38]){
-		// Up cursor key
-		tilt += 2;
+	else{
+		pitchRate = 0;
 	}
-	if(currentlyPressedKeys[40]){
-		tilt -= 2;
+
+	if(currentlyPressedKeys[37] || currentlyPressedKeys[65]){
+		// Left or A
+		yawRate = 0.1;
 	}
-}
-
-function animate(){
-	var timeNow = new Date().getTime();
-	if(lastTime != 0){
-		var elapsed = timeNow - lastTime;
-
-		for(var i in stars){
-			stars[i].animate(elapsed);
-		}
+	else if(currentlyPressedKeys[39] || currentlyPressedKeys[68]){
+		// Right of D
+		yawRate = -0.1;
 	}
-	lastTime = timeNow;
-}
+	else{
+		yawRate = 0;
+	}
 
-function drawScene(){
-	gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-	mat4.perspective(45, gl.viewportWidth/gl.viewportHeight, 0.1, 100.0, pMatrix);
-
-	gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-	gl.enable(gl.BLEND);
-
-	mat4.identity(mvMatrix);
-	mat4.translate(mvMatrix, [0.0, 0.0, zoom]);
-	mat4.rotate(mvMatrix, degToRad(tilt), [1.0,0.0,0.0]);
-
-	var twinkle = document.getElementById("twinkle").checked;
-
-	for(var i in stars){
-		stars[i].draw(tilt, spin, twinkle);
-		spin += 0.1;
+	if(currentlyPressedKeys[38] || currentlyPressedKeys[87]){
+		// Up or W
+		speed = 0.003;
+	}
+	else if(currentlyPressedKeys[40] || currentlyPressedKeys[83]){
+		// Down or S
+		speed = -0.003;
+	}
+	else{
+		speed = 0;
 	}
 }
-
-
 
 function handleKeyDown(event){
 	currentlyPressedKeys[event.keyCode] = true;
@@ -337,15 +265,66 @@ function handleKeyUp(event){
 
 
 
+function animate(){
+	var timeNow = new Date().getTime();
+	if(lastTime != 0){
+		var elapsed = timeNow - lastTime;
+
+		if(speed != 0){
+			xPos -= Math.sin(degToRad(yaw)) * speed * elapsed;
+			zPos -= Math.cos(degToRad(yaw)) * speed * elapsed;
+
+			joggingAngle += elapsed * 0.6;
+			yPos = Math.sin(degToRad(joggingAngle)) / 20 + 0.4;
+		}
+
+		yaw += yawRate * elapsed;
+		pitch += pitchRate * elapsed;
+	}
+	lastTime = timeNow;
+}
+
+function drawScene(){
+	gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+	if(worldVertexTextureCoordBuffer == null || worldVertexPositionBuffer == null){
+		return;
+	}
+
+	mat4.perspective(45, gl.viewportWidth/gl.viewportHeight, 0.1, 100.0, pMatrix);
+
+	mat4.identity(mvMatrix);
+	mat4.rotate(mvMatrix, degToRad(-pitch), [1,0,0]);
+	mat4.rotate(mvMatrix, degToRad(-yaw), [0,1,0]);
+	mat4.translate(mvMatrix, [-xPos, -yPos, -zPos]);
+
+	gl.activeTexture(gl.TEXTURE0);
+	gl.bindTexture(gl.TEXTURE_2D, stoneTexture);
+	gl.uniform1i(shaderProgram.samplerUniform, 0);
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, worldVertexTextureCoordBuffer);
+	gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, worldVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, worldVertexPositionBuffer);
+	gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, worldVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+	setMatrixUniforms();
+	gl.drawArrays(gl.TRIANGLES, 0, worldVertexPositionBuffer.numItems);
+}
+
+
+
+
 function webgl_start() {
 	var canvas = document.getElementById("webgl_canvas");
 	initGL(canvas);
 	initShaders();
-	initBuffers();
 	initTexture();
-	initWorldObjects();
+	loadWorld();
 
 	gl.clearColor(0.33, 0.33, 0.33, 1.0); // Approx hex colour of #555555
+	gl.enable(gl.DEPTH_TEST);
 
 	// Paul Irish's gist to polyfill window.requestAnimationFrame
 	(function() {
