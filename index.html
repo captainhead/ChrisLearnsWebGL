@@ -58,26 +58,19 @@
 
 
 
-		#lighting_controls{
-			display:inline-block;
-			width: 600px;
-
-			padding-top: 32px;
-
-			text-align: left;
+		.control_forms ul{
+			list-style-type: none;
 		}
 
-			#lighting_controls ul{
-				list-style-type: none;
-			}
-
-			#lighting_controls ul li h3{
-				padding-top: 16px;
-				padding-bottom: 8px;
-			}
+		.control_forms ul li h3{
+			padding-top: 16px;
+			padding-bottom: 8px;
+		}
 
 
 
+		#blending_controls,
+		#lighting_controls,
 		#instructions_area{
 			display:inline-block;
 			width: 600px;
@@ -87,34 +80,33 @@
 			text-align: left;
 		}
 
-			#instructions_area dt, #instructions_area dd{
-				padding: 5px 0;
-			}
 
-			#instructions_area dt{
-				float: left;
-				clear: left;
-				width: 150px;
 
-				text-align: right;
+		#instructions_area dt, #instructions_area dd{
+			padding: 5px 0;
+		}
 
-				font-weight: bold;
-			}
-			#instructions_area dt:after{
-				content: ":";
-			}
+		#instructions_area dt{
+			float: left;
+			clear: left;
+			width: 150px;
 
-			#instructions_area dd{
-				margin-left: 170px;
+			text-align: right;
 
-				color: #777777;
-			}
+			font-weight: bold;
+		}
+		#instructions_area dt:after{
+			content: ":";
+		}
+
+		#instructions_area dd{
+			margin-left: 170px;
+
+			color: #777777;
+		}
 
 
 		#webgl_canvas{
-			width: 640px;
-			height: 480px;
-
 			box-shadow: 0 0 14px 2px #555555;
 		}
 	</style>
@@ -160,13 +152,14 @@
 		precision mediump float;
 
 		uniform sampler2D uSampler;
+		uniform float uAlpha;
 
 		varying vec2 vTextureCoord;
 		varying vec3 vLightWeighting;
 
 		void main(void){
 			vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-			gl_FragColor = vec4(textureColor.rgb * vLightWeighting, textureColor.a);
+			gl_FragColor = vec4(textureColor.rgb * vLightWeighting, textureColor.a * uAlpha);
 		}
 	</script>
 </head>
@@ -177,6 +170,20 @@
 	<h1>WebGL Playground</h1>
 
   <canvas id="webgl_canvas" width="640" height="480">If you're reading this, you need a modern browser that supports HTML5 canvas and WebGL.</canvas>
+
+  <div id="blending_controls">
+  	<h2>Blending Parameters</h2>
+
+  	<div class="control_forms">
+	  	<ul>
+	  		<li><h3>Enable Blending</h3></li>
+			  <li><input type="checkbox" id="blending" checked /></li>
+		  	<li>
+		  		Alpha: <input type="text" id="alpha" value="0.5" />
+		  	</li>
+			</ul>
+		</div>
+  </div>
 
   <div id="lighting_controls">
   	<h2>Light Parameters</h2>
