@@ -69,8 +69,7 @@
 
 
 
-		#blending_controls,
-		#lighting_controls,
+		#param_controls,
 		#instructions_area{
 			display:inline-block;
 			width: 600px;
@@ -118,48 +117,28 @@
 	<script id="shader-vs" type="x-shader/x-vertex">
 		attribute vec3 aVertexPosition;
 		attribute vec2 aTextureCoord;
-		attribute vec3 aVertexNormal;
 
 		uniform mat4 uMVMatrix;
 		uniform mat4 uPMatrix;
-		uniform mat3 uNMatrix;
-
-		uniform vec3 uAmbientColor;
-
-		uniform vec3 uLightingDirection;
-		uniform vec3 uDirectionalColor;
-
-		uniform bool uUseLighting;
 
 		varying vec2 vTextureCoord;
-		varying vec3 vLightWeighting;
 
 		void main(void){
 			gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
 			vTextureCoord = aTextureCoord;
-
-			if(!uUseLighting){
-				vLightWeighting = vec3(1.0, 1.0, 1.0);
-			}
-			else {
-				vec3 transformedNormal = uNMatrix * aVertexNormal;
-				float directionalLightWeighting = max(dot(transformedNormal, uLightingDirection), 0.0);
-				vLightWeighting = uAmbientColor + uDirectionalColor*directionalLightWeighting;
-			}
 		}
 	</script>
 	<script id="shader-fs" type="x-shader/x-fragment">
 		precision mediump float;
 
 		uniform sampler2D uSampler;
-		uniform float uAlpha;
+		uniform vec3 uColor;
 
 		varying vec2 vTextureCoord;
-		varying vec3 vLightWeighting;
 
 		void main(void){
 			vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-			gl_FragColor = vec4(textureColor.rgb * vLightWeighting, textureColor.a * uAlpha);
+			gl_FragColor = textureColor * vec4(uColor, 1.0);
 		}
 	</script>
 </head>
@@ -171,56 +150,24 @@
 
   <canvas id="webgl_canvas" width="640" height="480">If you're reading this, you need a modern browser that supports HTML5 canvas and WebGL.</canvas>
 
-  <div id="blending_controls">
-  	<h2>Blending Parameters</h2>
+  <div id="param_controls">
+  	<h2>Parameters</h2>
 
   	<div class="control_forms">
 	  	<ul>
-	  		<li><h3>Enable Blending</h3></li>
-			  <li><input type="checkbox" id="blending" checked /></li>
-		  	<li>
-		  		Alpha: <input type="text" id="alpha" value="0.5" />
-		  	</li>
+	  		<li><h3>Enable "Twinkling"</h3></li>
+			  <li><input type="checkbox" id="twinkle" checked /></li>
 			</ul>
 		</div>
-  </div>
-
-  <div id="lighting_controls">
-  	<h2>Light Parameters</h2>
-
-  	<div class="control_forms">
-  		<ul>
-  			<li><h3>Activate Lighting</h3></li>
-		  	<li><input type="checkbox" id="lighting" checked /></li>
-  			<li><h3>Light Direction</h3></li>
-		  	<li>
-		  		X: <input type="text" id="lightDirectionX" value="-0.25" />
-			  	Y: <input type="text" id="lightDirectionY" value="-0.25" />
-			  	Z: <input type="text" id="lightDirectionZ" value="-1.0" />
-			  </li>
-  			<li><h3>Light Colour</h3></li>
-		  	<li>
-		  		R: <input type="text" id="directionalR" value="0.8" />
-			  	G: <input type="text" id="directionalG" value="0.8" />
-			  	B: <input type="text" id="directionalB" value="0.8" />
-			  </li>
-			  <li><h3>Ambient Light Colour</h3></li>
-			  <li>
-			  	R: <input type="text" id="ambientR" value="0.1" />
-			  	G: <input type="text" id="ambientG" value="0.1" />
-			  	B: <input type="text" id="ambientB" value="0.1" />
-			  </li>
-			</ul>
-	  </div>
   </div>
 
   <div id="instructions_area">
 	  <h2>Controls</h2>
 	  <dl>
 	  	<dt>Page Up/Down</dt>
-	  		<dd>Zoom Out/In (move the cube farther/closer).</dd>
-	  	<dt>Arrow Keys</dt>
-	  		<dd>Rotate the cube.</dd>
+	  		<dd>Zoom Out/In (move the view farther/closer).</dd>
+	  	<dt>Up/Down Arrow Keys</dt>
+	  		<dd>Rotate the view.</dd>
 	  </dl>
 	 </div>
 
