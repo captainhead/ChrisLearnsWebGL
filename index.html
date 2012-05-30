@@ -6,7 +6,7 @@
 	<style>
 		@import url(http://fonts.googleapis.com/css?family=Press+Start+2P|Open_Sans);
 
-		html,body,h1,h2,h3 {
+		html,body,h1,h2,h3,h4,p{
 			margin:0;
 			padding:0;
 		}
@@ -15,7 +15,7 @@
 		body{
 			background-color: #555555;
 
-			color: #333333;
+			color: #111111;
 			font-family: "Open Sans", sans-serif;
 			font-size: 18px;
 		}
@@ -30,8 +30,12 @@
 		}
 
 		h3{
-			color: #777777;
+			color: #666666;
 			font-size: 18px;
+		}
+
+		h4{
+			font-size: 22px;
 		}
 
 
@@ -52,10 +56,37 @@
 				margin-bottom: 32px;
 			}
 
+			#content_area a{
+				color: inherit;
+			}
+			#content_area a:hover{
+				color: #111111;
+			}
+
 			#content_area footer{
 				margin-top: 32px;
 			}
 
+
+		#intro_area{
+			display: inline-block;
+			width: 600px;
+
+			text-align: left;
+
+			font-size: 18px;
+		}
+
+			#intro_area p{
+				margin-top: 8px;
+				color: #666666;
+			}
+
+			#intro_area em{
+				color: #111111;
+				font-style: normal;
+				font-weight: bold;
+			}
 
 
 		.control_forms ul{
@@ -101,11 +132,12 @@
 		#instructions_area dd{
 			margin-left: 170px;
 
-			color: #777777;
+			color: #666666;
 		}
 
 
 		#webgl_canvas{
+			margin-top: 32px;
 			box-shadow: 0 0 14px 2px #555555;
 		}
 	</style>
@@ -148,7 +180,20 @@
 <div id="content_area">
 	<h1>WebGL Playground</h1>
 
-  <canvas id="webgl_canvas" width="640" height="480">If you're reading this, you need a modern browser that supports HTML5 canvas and WebGL.</canvas>
+	<div id="intro_area">
+		<h4>In which Chris learns WebGL.</h4>
+		<p>
+			Following along with the tutorials at <a href="http://learningwebgl.com/blog/?page_id=1217">Learning WebGL</a>.
+		</p>
+		<p>
+			In all likelyhood, this page <em>will only work if you are on a PC or Mac using Chrome or Firefox</em>. It will simply not work in Internet Explorer, but it is (I believe) possible to enable in Safari.
+		</p>
+		<p>
+			For the programmatically inclined, the source is on <a href="http://github.com/captainhead/ChrisLearnsWebGL">Github</a>. I plan on building this into something more interesting over time.
+		</p>
+	</div>
+
+  <canvas id="webgl_canvas" width="640" height="480">If you're reading this, you need a modern browser that supports HTML5 canvas, not to mention WebGL.</canvas>
 
   <div id="param_controls">
   	<h2>Parameters</h2>
