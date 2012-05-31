@@ -6,26 +6,18 @@ var pMatrix = mat4.create(); // Projection matrix
 
 var shaderProgram;
 
-var worldVertexPositionBuffer = null;
-var worldVertexTextureCoordBuffer = null;
+var moonTexture;
+var moonVertexPositionBuffer;
+var moonVertexTextureCoordBuffer;
+var moonVertexNormalBuffer;
+var moonVertexIndexBuffer;
 
-var lastTime = 0;
+var moonRotationMatrix = mat4.create();
+mat4.identity(moonRotationMatrix);
 
-var currentlyPressedKeys = {};
-
-var pitch = 0;
-var pitchRate = 0;
-
-var yaw = 0;
-var yawRate = 0;
-
-var xPos = 0;
-var yPos = 0.4;
-var zPos = 0;
-
-var speed = 0;
-
-var joggingAngle = 0;
+var mouseDown = false;
+var lastMouseX = null;
+var lastMouseY = null;
 
 
 
@@ -39,6 +31,82 @@ function initGL(canvas){
 	if(!gl){
 		alert("GL init failed!");
 	}
+}
+
+
+function initBuffers(){
+	var latitudeBands = 30;
+	var longitudeBands = 30;
+	var radius = 2;
+
+	var vertexPositionData = [];
+	var normalData = [];
+	var textureCoordData = [];
+	for(var latNumber=0; latNumber <= latitudeBands; latNumber++){
+		var theta = latNumber * Math.PI / latitudeBands;
+		var sinTheta = Math.sin(theta);
+		var cosTheta = Math.cos(theta);
+
+		for(var longNumber=0; longNumber <= longitudeBands; longNumber++){
+			var phi = longNumber * 2 * Math.PI / longitudeBands;
+			var sinPhi = Math.sin(phi);
+			var cosPhi = Math.cos(phi);
+
+			var x = cosPhi * sinTheta;
+			var y = cosTheta;
+			var z = sinPhi * sinTheta;
+			var u = 1 - (longNumber / longitudeBands);
+			var v = 1 - (latNumber / latitudeBands);
+
+			normalData.push(x);
+			normalData.push(y);
+			normalData.push(z);
+			textureCoordData.push(u);
+			textureCoordData.push(v);
+			vertexPositionData.push(radius * x);
+			vertexPositionData.push(radius * y);
+			vertexPositionData.push(radius * z);
+		}
+	}
+
+	var indexData = [];
+	for(var latNumber = 0; latNumber < latitudeBands; latNumber++){
+		for(var longNumber = 0; longNumber < longitudeBands; longNumber++){
+			var first = (latNumber * (longitudeBands + 1)) + longNumber;
+			var second = first + longitudeBands + 1;
+			indexData.push(first);
+			indexData.push(second);
+			indexData.push(first + 1);
+
+			indexData.push(second);
+			indexData.push(second + 1);
+			indexData.push(first + 1);
+		}
+	}
+
+	moonVertexPositionBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, moonVertexPositionBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexPositionData), gl.STATIC_DRAW);
+	moonVertexPositionBuffer.itemSize = 3;
+	moonVertexPositionBuffer.numItems = vertexPositionData.length / 3;
+
+	moonVertexTextureCoordBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, moonVertexTextureCoordBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoordData), gl.STATIC_DRAW);
+	moonVertexTextureCoordBuffer.itemSize = 2;
+	moonVertexTextureCoordBuffer.numItems = textureCoordData.length / 2;
+
+	moonVertexNormalBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, moonVertexNormalBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normalData), gl.STATIC_DRAW);
+	moonVertexNormalBuffer.itemSize = 3;
+	moonVertexNormalBuffer.numItems = normalData.length / 3;
+
+	moonVertexIndexBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, moonVertexIndexBuffer);
+	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indexData), gl.STATIC_DRAW);
+	moonVertexIndexBuffer.itemSize = 1;
+	moonVertexIndexBuffer.numItems = indexData.length;
 }
 
 
@@ -63,9 +131,17 @@ function initShaders(){
 	shaderProgram.textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
 	gl.enableVertexAttribArray(shaderProgram.vertexColorAttribute);
 
+	shaderProgram.vertexNormalAttribute = gl.getAttribLocation(shaderProgram, "aVertexNormal");
+	gl.enableVertexAttribArray(shaderProgram.vertexNormalAttribute);
+
 	shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
 	shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+	shaderProgram.nMatrixUniform = gl.getUniformLocation(shaderProgram, "uNMatrix");
 	shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
+	shaderProgram.useLightingUniform = gl.getUniformLocation(shaderProgram, "uUseLighting");
+	shaderProgram.ambientColorUniform = gl.getUniformLocation(shaderProgram, "uAmbientColor");
+	shaderProgram.lightingDirectionUniform = gl.getUniformLocation(shaderProgram, "uLightingDirection");
+	shaderProgram.directionalColorUniform = gl.getUniformLocation(shaderProgram, "uDirectionalColor");
 }
 
 function getShader(gl, id){
@@ -104,13 +180,13 @@ function getShader(gl, id){
 
 
 function initTexture(){
-	stoneTexture = gl.createTexture();
-	stoneTexture.image = new Image();
-	stoneTexture.image.onload = function(){
-		handleLoadedTexture(stoneTexture);
+	moonTexture = gl.createTexture();
+	moonTexture.image = new Image();
+	moonTexture.image.onload = function(){
+		handleLoadedTexture(moonTexture);
 	}
 
-	stoneTexture.image.src = "stone_texture.jpg";
+	moonTexture.image.src = "moon.jpg";
 }
 
 function handleLoadedTexture(texture){
@@ -119,59 +195,12 @@ function handleLoadedTexture(texture){
 	gl.bindTexture(gl.TEXTURE_2D, texture);
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
-	gl.generateMipmap(gl.TEXTURE_2D);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+	// ALlow use of texture that is rectangular
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
 	gl.bindTexture(gl.TEXTURE_2D, null);
-}
-
-
-
-
-function loadWorld(){
-	var request = new XMLHttpRequest();
-	request.open("GET", "world.txt");
-	request.onreadystatechange = function(){
-		if(request.readyState == 4){
-			handleLoadedWorld(request.responseText);
-		}
-	}
-	request.send();
-}
-
-function handleLoadedWorld(data){
-	var lines = data.split("\n");
-	var vertexCount = 0;
-	var vertexPositions = [];
-	var vertexTextureCoords = [];
-	for (var i in lines){
-		var vals = lines[i].replace(/^\s+/, "").split(/\s+/);
-		if(vals.length == 5 && vals[0] != "//"){
-			vertexPositions.push(parseFloat(vals[0]));
-			vertexPositions.push(parseFloat(vals[1]));
-			vertexPositions.push(parseFloat(vals[2]));
-
-			vertexTextureCoords.push(parseFloat(vals[3]));
-			vertexTextureCoords.push(parseFloat(vals[4]));
-
-			vertexCount += 1;
-		}
-	}
-
-	worldVertexPositionBuffer = gl.createBuffer();
-	gl.bindBuffer(gl.ARRAY_BUFFER, worldVertexPositionBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexPositions), gl.STATIC_DRAW);
-	worldVertexPositionBuffer.itemSize = 3;
-	worldVertexPositionBuffer.numItems = vertexCount;
-
-
-	worldVertexTextureCoordBuffer = gl.createBuffer();
-	gl.bindBuffer(gl.ARRAY_BUFFER, worldVertexTextureCoordBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexTextureCoords), gl.STATIC_DRAW);
-	worldVertexTextureCoordBuffer.itemSize = 2;
-	worldVertexTextureCoordBuffer.numItems = vertexCount;
-
-	document.getElementById("loadingtext").textContent = "";
 }
 
 
@@ -181,6 +210,12 @@ function handleLoadedWorld(data){
 function setMatrixUniforms(){
 	gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
 	gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
+
+	// Reverse the effects of the projection and modelview matrix have on the normal vector
+	var normalMatrix = mat3.create();
+	mat4.toInverseMat3(mvMatrix, normalMatrix);
+	mat3.transpose(normalMatrix);
+	gl.uniformMatrix3fv(shaderProgram.nMatrixUniform, false, normalMatrix);
 }
 
 
@@ -207,110 +242,105 @@ function mvPopMatrix(){
 
 
 
+function handleMouseDown(event){
+	mouseDown = true;
+	lastMouseX = event.clientX;
+	lastMouseY = event.clientY;
+}
+
+function handleMouseUp(event){
+	mouseDown = false;
+}
+
+function handleMouseMove(event){
+	if(!mouseDown){
+		return;
+	}
+	var newX = event.clientX;
+	var newY = event.clientY;
+
+	var newRotationMatrix = mat4.create();
+	mat4.identity(newRotationMatrix);
+
+	var deltaX = newX - lastMouseX;
+	mat4.rotate(newRotationMatrix, degToRad(deltaX / 10), [0,1,0]);
+
+	var deltaY = newY - lastMouseY;
+	mat4.rotate(newRotationMatrix, degToRad(deltaY / 10), [1,0,0]);
+
+	mat4.multiply(newRotationMatrix, moonRotationMatrix, moonRotationMatrix);
+
+	lastMouseX = newX;
+	lastMouseY = newY;
+}
+
+
+
+
+
 function tick(){
 	// Schedule a redraw to occur once the current frame has finished drawing
 	window.requestAnimationFrame(tick);
 
-	handleKeys();
 	drawScene();
-	animate();
-}
-
-
-function handleKeys(){
-	if(currentlyPressedKeys[33]){
-		// Page up
-		pitchRate = 0.1;
-	}
-	else if(currentlyPressedKeys[34]){
-		// Page Down
-		pitchRate = -0.1;
-	}
-	else{
-		pitchRate = 0;
-	}
-
-	if(currentlyPressedKeys[37] || currentlyPressedKeys[65]){
-		// Left or A
-		yawRate = 0.1;
-	}
-	else if(currentlyPressedKeys[39] || currentlyPressedKeys[68]){
-		// Right of D
-		yawRate = -0.1;
-	}
-	else{
-		yawRate = 0;
-	}
-
-	if(currentlyPressedKeys[38] || currentlyPressedKeys[87]){
-		// Up or W
-		speed = 0.003;
-	}
-	else if(currentlyPressedKeys[40] || currentlyPressedKeys[83]){
-		// Down or S
-		speed = -0.003;
-	}
-	else{
-		speed = 0;
-	}
-}
-
-function handleKeyDown(event){
-	currentlyPressedKeys[event.keyCode] = true;
-}
-
-function handleKeyUp(event){
-	currentlyPressedKeys[event.keyCode] = false;
-}
-
-
-
-function animate(){
-	var timeNow = new Date().getTime();
-	if(lastTime != 0){
-		var elapsed = timeNow - lastTime;
-
-		if(speed != 0){
-			xPos -= Math.sin(degToRad(yaw)) * speed * elapsed;
-			zPos -= Math.cos(degToRad(yaw)) * speed * elapsed;
-
-			joggingAngle += elapsed * 0.6;
-			yPos = Math.sin(degToRad(joggingAngle)) / 20 + 0.4;
-		}
-
-		yaw += yawRate * elapsed;
-		pitch += pitchRate * elapsed;
-	}
-	lastTime = timeNow;
 }
 
 function drawScene(){
 	gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-	if(worldVertexTextureCoordBuffer == null || worldVertexPositionBuffer == null){
-		return;
-	}
-
 	mat4.perspective(45, gl.viewportWidth/gl.viewportHeight, 0.1, 100.0, pMatrix);
 
+	var lighting = document.getElementById("lighting").checked;
+	gl.uniform1i(shaderProgram.useLightingUniform, lighting);
+	if(lighting){
+		// Ambient light colour
+		gl.uniform3f(
+			shaderProgram.ambientColorUniform,
+			parseFloat(document.getElementById("ambientR").value),
+			parseFloat(document.getElementById("ambientG").value),
+			parseFloat(document.getElementById("ambientB").value)
+		);
+		// Light direction
+		var lightingDirection = [
+			parseFloat(document.getElementById("lightDirectionX").value),
+			parseFloat(document.getElementById("lightDirectionY").value),
+			parseFloat(document.getElementById("lightDirectionZ").value)
+		];
+		var adjustedLD = vec3.create();
+		vec3.normalize(lightingDirection, adjustedLD);
+		vec3.scale(adjustedLD, -1);
+		gl.uniform3fv(shaderProgram.lightingDirectionUniform, adjustedLD);
+		// Directional light colour
+		gl.uniform3f(
+			shaderProgram.directionalColorUniform,
+			parseFloat(document.getElementById("directionalR").value),
+			parseFloat(document.getElementById("directionalG").value),
+			parseFloat(document.getElementById("directionalB").value)
+		);
+	}
+
 	mat4.identity(mvMatrix);
-	mat4.rotate(mvMatrix, degToRad(-pitch), [1,0,0]);
-	mat4.rotate(mvMatrix, degToRad(-yaw), [0,1,0]);
-	mat4.translate(mvMatrix, [-xPos, -yPos, -zPos]);
+
+	mat4.translate(mvMatrix, [0,0,-6]);
+	mat4.multiply(mvMatrix, moonRotationMatrix);
 
 	gl.activeTexture(gl.TEXTURE0);
-	gl.bindTexture(gl.TEXTURE_2D, stoneTexture);
+	gl.bindTexture(gl.TEXTURE_2D, moonTexture);
 	gl.uniform1i(shaderProgram.samplerUniform, 0);
 
-	gl.bindBuffer(gl.ARRAY_BUFFER, worldVertexTextureCoordBuffer);
-	gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, worldVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	gl.bindBuffer(gl.ARRAY_BUFFER, moonVertexPositionBuffer);
+	gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, moonVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-	gl.bindBuffer(gl.ARRAY_BUFFER, worldVertexPositionBuffer);
-	gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, worldVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	gl.bindBuffer(gl.ARRAY_BUFFER, moonVertexTextureCoordBuffer);
+	gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, moonVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
+	gl.bindBuffer(gl.ARRAY_BUFFER, moonVertexNormalBuffer);
+	gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, moonVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, moonVertexIndexBuffer);
 	setMatrixUniforms();
-	gl.drawArrays(gl.TRIANGLES, 0, worldVertexPositionBuffer.numItems);
+	gl.drawElements(gl.TRIANGLES, moonVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 }
 
 
@@ -320,8 +350,8 @@ function webgl_start() {
 	var canvas = document.getElementById("webgl_canvas");
 	initGL(canvas);
 	initShaders();
+	initBuffers();
 	initTexture();
-	loadWorld();
 
 	gl.clearColor(0.33, 0.33, 0.33, 1.0); // Approx hex colour of #555555
 	gl.enable(gl.DEPTH_TEST);
@@ -352,8 +382,9 @@ function webgl_start() {
 	        };
 	}());
 
-	document.onkeydown = handleKeyDown;
-	document.onkeyup = handleKeyUp;
+	canvas.onmousedown = handleMouseDown;
+	document.onmouseup = handleMouseUp;
+	document.onmousemove = handleMouseMove;
 
 	tick();
 }

@@ -149,15 +149,34 @@
 	<script id="shader-vs" type="x-shader/x-vertex">
 		attribute vec3 aVertexPosition;
 		attribute vec2 aTextureCoord;
+		attribute vec3 aVertexNormal;
 
 		uniform mat4 uMVMatrix;
 		uniform mat4 uPMatrix;
+		uniform mat3 uNMatrix;
+
+		uniform vec3 uAmbientColor;
+
+		uniform vec3 uLightingDirection;
+		uniform vec3 uDirectionalColor;
+
+		uniform bool uUseLighting;
 
 		varying vec2 vTextureCoord;
+		varying vec3 vLightWeighting;
 
 		void main(void){
 			gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
 			vTextureCoord = aTextureCoord;
+
+			if(!uUseLighting){
+				vLightWeighting = vec3(1.0, 1.0, 1.0);
+			}
+			else {
+				vec3 transformedNormal = uNMatrix * aVertexNormal;
+				float directionalLightWeighting = max(dot(transformedNormal, uLightingDirection), 0.0);
+				vLightWeighting = uAmbientColor + uDirectionalColor*directionalLightWeighting;
+			}
 		}
 	</script>
 	<script id="shader-fs" type="x-shader/x-fragment">
@@ -166,10 +185,11 @@
 		uniform sampler2D uSampler;
 
 		varying vec2 vTextureCoord;
+		varying vec3 vLightWeighting;
 
 		void main(void){
 			vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-			gl_FragColor = textureColor;
+			gl_FragColor = vec4(textureColor.rgb * vLightWeighting, textureColor.a);
 		}
 	</script>
 </head>
@@ -195,16 +215,42 @@
 
   <canvas id="webgl_canvas" width="640" height="480">If you're reading this, you need a modern browser that supports HTML5 canvas, not to mention WebGL.</canvas>
 
-  <div id="loadingtext">Loading world...</div>
+
+  <div id="lighting_controls">
+  	<h2>Light Parameters</h2>
+
+  	<div class="control_forms">
+  		<ul>
+  			<li><h3>Activate Lighting</h3></li>
+		  	<li><input type="checkbox" id="lighting" checked /></li>
+  			<li><h3>Light Direction</h3></li>
+		  	<li>
+		  		X: <input type="text" id="lightDirectionX" value="-0.25" />
+			  	Y: <input type="text" id="lightDirectionY" value="-0.25" />
+			  	Z: <input type="text" id="lightDirectionZ" value="-1.0" />
+			  </li>
+  			<li><h3>Light Colour</h3></li>
+		  	<li>
+		  		R: <input type="text" id="directionalR" value="0.8" />
+			  	G: <input type="text" id="directionalG" value="0.8" />
+			  	B: <input type="text" id="directionalB" value="0.8" />
+			  </li>
+			  <li><h3>Ambient Light Colour</h3></li>
+			  <li>
+			  	R: <input type="text" id="ambientR" value="0.1" />
+			  	G: <input type="text" id="ambientG" value="0.1" />
+			  	B: <input type="text" id="ambientB" value="0.1" />
+			  </li>
+			</ul>
+	  </div>
+  </div>
 
 
   <div id="instructions_area">
 	  <h2>Controls</h2>
 	  <dl>
-	  	<dt>W,A,S,D</dt>
-	  		<dd>Move and turn.</dd>
-	  	<dt>Page Up/Down</dt>
-	  		<dd>Look up/down.</dd>
+	  	<dt>Mouse (Click & Drag)</dt>
+	  		<dd>Rotate the moon.</dd>
 	  </dl>
 	 </div>
 
