@@ -100,7 +100,7 @@
 
 
 
-		#param_controls,
+		#lighting_controls,
 		#instructions_area{
 			display:inline-block;
 			width: 600px;
@@ -157,8 +157,8 @@
 
 		uniform vec3 uAmbientColor;
 
-		uniform vec3 uLightingDirection;
-		uniform vec3 uDirectionalColor;
+		uniform vec3 uPointLightingLocation;
+		uniform vec3 uPointLightingColor;
 
 		uniform bool uUseLighting;
 
@@ -166,16 +166,19 @@
 		varying vec3 vLightWeighting;
 
 		void main(void){
-			gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+			vec4 mvPosition = uMVMatrix * vec4(aVertexPosition, 1.0);
+			gl_Position = uPMatrix * mvPosition;
+
 			vTextureCoord = aTextureCoord;
 
 			if(!uUseLighting){
 				vLightWeighting = vec3(1.0, 1.0, 1.0);
 			}
 			else {
+				vec3 lightDirection = normalize(uPointLightingLocation - mvPosition.xyz);
 				vec3 transformedNormal = uNMatrix * aVertexNormal;
-				float directionalLightWeighting = max(dot(transformedNormal, uLightingDirection), 0.0);
-				vLightWeighting = uAmbientColor + uDirectionalColor*directionalLightWeighting;
+				float directionalLightWeighting = max(dot(transformedNormal, lightDirection), 0.0);
+				vLightWeighting = uAmbientColor + uPointLightingColor*directionalLightWeighting;
 			}
 		}
 	</script>
@@ -223,17 +226,17 @@
   		<ul>
   			<li><h3>Activate Lighting</h3></li>
 		  	<li><input type="checkbox" id="lighting" checked /></li>
-  			<li><h3>Light Direction</h3></li>
+  			<li><h3>Light Position</h3></li>
 		  	<li>
-		  		X: <input type="text" id="lightDirectionX" value="-0.25" />
-			  	Y: <input type="text" id="lightDirectionY" value="-0.25" />
-			  	Z: <input type="text" id="lightDirectionZ" value="-1.0" />
+		  		X: <input type="text" id="lightPositionX" value="0" />
+			  	Y: <input type="text" id="lightPositionY" value="0" />
+			  	Z: <input type="text" id="lightPositionZ" value="-12" />
 			  </li>
   			<li><h3>Light Colour</h3></li>
 		  	<li>
-		  		R: <input type="text" id="directionalR" value="0.8" />
-			  	G: <input type="text" id="directionalG" value="0.8" />
-			  	B: <input type="text" id="directionalB" value="0.8" />
+		  		R: <input type="text" id="pointR" value="0.8" />
+			  	G: <input type="text" id="pointG" value="0.8" />
+			  	B: <input type="text" id="pointB" value="0.8" />
 			  </li>
 			  <li><h3>Ambient Light Colour</h3></li>
 			  <li>
@@ -249,8 +252,8 @@
   <div id="instructions_area">
 	  <h2>Controls</h2>
 	  <dl>
-	  	<dt>Mouse (Click & Drag)</dt>
-	  		<dd>Rotate the moon.</dd>
+	  	<dt>Do Nothing</dt>
+	  		<dd>Or else!</dd>
 	  </dl>
 	 </div>
 

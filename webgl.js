@@ -12,8 +12,14 @@ var moonVertexTextureCoordBuffer;
 var moonVertexNormalBuffer;
 var moonVertexIndexBuffer;
 
-var moonRotationMatrix = mat4.create();
-mat4.identity(moonRotationMatrix);
+var boxTexture;
+var boxVertexPositionBuffer;
+var boxVertexTextureCoordBuffer;
+var boxVertexNormalBuffer;
+var boxVertexIndexBuffer;
+
+var rotationMatrix = mat4.create();
+mat4.identity(rotationMatrix);
 
 var mouseDown = false;
 var lastMouseX = null;
@@ -35,9 +41,10 @@ function initGL(canvas){
 
 
 function initBuffers(){
+	// Build the sphere
 	var latitudeBands = 30;
 	var longitudeBands = 30;
-	var radius = 2;
+	var radius = 1.5;
 
 	var vertexPositionData = [];
 	var normalData = [];
@@ -107,6 +114,146 @@ function initBuffers(){
 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indexData), gl.STATIC_DRAW);
 	moonVertexIndexBuffer.itemSize = 1;
 	moonVertexIndexBuffer.numItems = indexData.length;
+
+
+	// Build the box
+	boxVertexPositionBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, boxVertexPositionBuffer);
+	var boxVertices = [
+		// Front face
+		-1.0, -1.0,  1.0,
+		1.0, -1.0,  1.0,
+		1.0,  1.0,  1.0,
+		-1.0,  1.0,  1.0,
+		// Back face
+		-1.0, -1.0, -1.0,
+		-1.0,  1.0, -1.0,
+		1.0,  1.0, -1.0,
+		1.0, -1.0, -1.0,
+		// Top face
+		-1.0,  1.0, -1.0,
+		-1.0,  1.0,  1.0,
+		1.0,  1.0,  1.0,
+		1.0,  1.0, -1.0,
+		// Bottom face
+		-1.0, -1.0, -1.0,
+		1.0, -1.0, -1.0,
+		1.0, -1.0,  1.0,
+		-1.0, -1.0,  1.0,
+		// Right face
+		1.0, -1.0, -1.0,
+		1.0,  1.0, -1.0,
+		1.0,  1.0,  1.0,
+		1.0, -1.0,  1.0,
+		// Left face
+		-1.0, -1.0, -1.0,
+		-1.0, -1.0,  1.0,
+		-1.0,  1.0,  1.0,
+		-1.0,  1.0, -1.0
+	];
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(boxVertices), gl.STATIC_DRAW);
+	boxVertexPositionBuffer.itemSize = 3;
+	boxVertexPositionBuffer.numItems = 24;
+
+	boxVertexNormalBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, boxVertexNormalBuffer);
+	var boxNormals = [
+        // Front face
+         0.0,  0.0,  1.0,
+         0.0,  0.0,  1.0,
+         0.0,  0.0,  1.0,
+         0.0,  0.0,  1.0,
+
+        // Back face
+         0.0,  0.0, -1.0,
+         0.0,  0.0, -1.0,
+         0.0,  0.0, -1.0,
+         0.0,  0.0, -1.0,
+
+        // Top face
+         0.0,  1.0,  0.0,
+         0.0,  1.0,  0.0,
+         0.0,  1.0,  0.0,
+         0.0,  1.0,  0.0,
+
+        // Bottom face
+         0.0, -1.0,  0.0,
+         0.0, -1.0,  0.0,
+         0.0, -1.0,  0.0,
+         0.0, -1.0,  0.0,
+
+        // Right face
+         1.0,  0.0,  0.0,
+         1.0,  0.0,  0.0,
+         1.0,  0.0,  0.0,
+         1.0,  0.0,  0.0,
+
+        // Left face
+        -1.0,  0.0,  0.0,
+        -1.0,  0.0,  0.0,
+        -1.0,  0.0,  0.0,
+        -1.0,  0.0,  0.0
+	];
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(boxNormals), gl.STATIC_DRAW);
+	boxVertexNormalBuffer.itemSize = 3;
+	boxVertexNormalBuffer.numItems = 24;
+
+	boxVertexTextureCoordBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, boxVertexTextureCoordBuffer);
+	var boxTexCoords = [
+		// Front face
+		0.0, 0.0,
+		1.0, 0.0,
+		1.0, 1.0,
+		0.0, 1.0,
+
+		// back face
+		1.0, 0.0,
+		1.0, 1.0,
+		0.0, 1.0,
+		0.0, 0.0,
+
+		// Top face
+		0.0, 1.0,
+		0.0, 0.0,
+		1.0, 0.0,
+		1.0, 1.0,
+
+		// Bottom face
+		1.0, 1.0,
+		0.0, 1.0,
+		0.0, 0.0,
+		1.0, 0.0,
+
+		// Right face
+		1.0, 0.0,
+		1.0, 1.0,
+		0.0, 1.0,
+		0.0, 0.0,
+
+		// Left face
+		0.0, 0.0,
+		1.0, 0.0,
+		1.0, 1.0,
+		0.0, 1.0
+	];
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(boxTexCoords), gl.STATIC_DRAW);
+	boxVertexTextureCoordBuffer.itemSize = 2;
+	boxVertexTextureCoordBuffer.numItems = 24;
+
+	boxVertexIndexBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, boxVertexIndexBuffer);
+	var boxIndicies = [
+		0, 1, 2,	0, 2, 3, // Front face
+		4, 5, 6,	4, 6, 7, // Back face
+		8, 9, 10,	8, 10, 11, // Top face
+		12, 13, 14,	12, 14, 15, // Bottom face
+		16, 17, 18, 16, 18, 19, // Right face
+		20, 21, 22, 20, 22, 23 // Left face
+	];
+	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(boxIndicies), gl.STATIC_DRAW);
+	boxVertexIndexBuffer.itemSize = 1;
+	boxVertexIndexBuffer.numItems = 36;
 }
 
 
@@ -140,8 +287,8 @@ function initShaders(){
 	shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
 	shaderProgram.useLightingUniform = gl.getUniformLocation(shaderProgram, "uUseLighting");
 	shaderProgram.ambientColorUniform = gl.getUniformLocation(shaderProgram, "uAmbientColor");
-	shaderProgram.lightingDirectionUniform = gl.getUniformLocation(shaderProgram, "uLightingDirection");
-	shaderProgram.directionalColorUniform = gl.getUniformLocation(shaderProgram, "uDirectionalColor");
+	shaderProgram.pointLightingLocationUniform = gl.getUniformLocation(shaderProgram, "uPointLightingLocation");
+	shaderProgram.pointLightingColorUniform = gl.getUniformLocation(shaderProgram, "uPointLightingColor");
 }
 
 function getShader(gl, id){
@@ -187,6 +334,14 @@ function initTexture(){
 	}
 
 	moonTexture.image.src = "moon.jpg";
+
+	boxTexture = gl.createTexture();
+	boxTexture.image = new Image();
+	boxTexture.image.onload = function(){
+		handleLoadedTexture(boxTexture);
+	}
+
+	boxTexture.image.src = "toon_box.jpg";
 }
 
 function handleLoadedTexture(texture){
@@ -195,10 +350,11 @@ function handleLoadedTexture(texture){
 	gl.bindTexture(gl.TEXTURE_2D, texture);
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
 	// ALlow use of texture that is rectangular
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	gl.generateMipmap(gl.TEXTURE_2D);
 
 	gl.bindTexture(gl.TEXTURE_2D, null);
 }
@@ -242,47 +398,16 @@ function mvPopMatrix(){
 
 
 
-function handleMouseDown(event){
-	mouseDown = true;
-	lastMouseX = event.clientX;
-	lastMouseY = event.clientY;
-}
-
-function handleMouseUp(event){
-	mouseDown = false;
-}
-
-function handleMouseMove(event){
-	if(!mouseDown){
-		return;
-	}
-	var newX = event.clientX;
-	var newY = event.clientY;
-
-	var newRotationMatrix = mat4.create();
-	mat4.identity(newRotationMatrix);
-
-	var deltaX = newX - lastMouseX;
-	mat4.rotate(newRotationMatrix, degToRad(deltaX / 10), [0,1,0]);
-
-	var deltaY = newY - lastMouseY;
-	mat4.rotate(newRotationMatrix, degToRad(deltaY / 10), [1,0,0]);
-
-	mat4.multiply(newRotationMatrix, moonRotationMatrix, moonRotationMatrix);
-
-	lastMouseX = newX;
-	lastMouseY = newY;
-}
-
-
-
-
-
 function tick(){
 	// Schedule a redraw to occur once the current frame has finished drawing
 	window.requestAnimationFrame(tick);
 
 	drawScene();
+	animate();
+}
+
+function animate(){
+	mat4.rotate(rotationMatrix, degToRad(0.8), [0,1,0]);
 }
 
 function drawScene(){
@@ -294,6 +419,20 @@ function drawScene(){
 	var lighting = document.getElementById("lighting").checked;
 	gl.uniform1i(shaderProgram.useLightingUniform, lighting);
 	if(lighting){
+		// Light position
+		gl.uniform3f(
+			shaderProgram.pointLightingLocationUniform,
+			parseFloat(document.getElementById("lightPositionX").value),
+			parseFloat(document.getElementById("lightPositionY").value),
+			parseFloat(document.getElementById("lightPositionZ").value)
+		);
+		// Point light colour
+		gl.uniform3f(
+			shaderProgram.pointLightingColorUniform,
+			parseFloat(document.getElementById("pointR").value),
+			parseFloat(document.getElementById("pointG").value),
+			parseFloat(document.getElementById("pointB").value)
+		);
 		// Ambient light colour
 		gl.uniform3f(
 			shaderProgram.ambientColorUniform,
@@ -301,29 +440,17 @@ function drawScene(){
 			parseFloat(document.getElementById("ambientG").value),
 			parseFloat(document.getElementById("ambientB").value)
 		);
-		// Light direction
-		var lightingDirection = [
-			parseFloat(document.getElementById("lightDirectionX").value),
-			parseFloat(document.getElementById("lightDirectionY").value),
-			parseFloat(document.getElementById("lightDirectionZ").value)
-		];
-		var adjustedLD = vec3.create();
-		vec3.normalize(lightingDirection, adjustedLD);
-		vec3.scale(adjustedLD, -1);
-		gl.uniform3fv(shaderProgram.lightingDirectionUniform, adjustedLD);
-		// Directional light colour
-		gl.uniform3f(
-			shaderProgram.directionalColorUniform,
-			parseFloat(document.getElementById("directionalR").value),
-			parseFloat(document.getElementById("directionalG").value),
-			parseFloat(document.getElementById("directionalB").value)
-		);
 	}
 
 	mat4.identity(mvMatrix);
 
-	mat4.translate(mvMatrix, [0,0,-6]);
-	mat4.multiply(mvMatrix, moonRotationMatrix);
+	mat4.translate(mvMatrix, [0,0,-12]);
+	mat4.multiply(mvMatrix, rotationMatrix);
+
+	// Draw the moon
+	mvPushMatrix();
+
+	mat4.translate(mvMatrix, [4,0,0]);
 
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_2D, moonTexture);
@@ -341,6 +468,29 @@ function drawScene(){
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, moonVertexIndexBuffer);
 	setMatrixUniforms();
 	gl.drawElements(gl.TRIANGLES, moonVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+
+	// Draw the box
+	mvPopMatrix();
+
+	mat4.translate(mvMatrix, [-4,0,0]);
+
+	gl.activeTexture(gl.TEXTURE0);
+	gl.bindTexture(gl.TEXTURE_2D, boxTexture);
+	gl.uniform1i(shaderProgram.samplerUniform, 0);
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, boxVertexPositionBuffer);
+	gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, boxVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, boxVertexTextureCoordBuffer);
+	gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, boxVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, boxVertexNormalBuffer);
+	gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, boxVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, boxVertexIndexBuffer);
+	setMatrixUniforms();
+	gl.drawElements(gl.TRIANGLES, boxVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 }
 
 
@@ -381,10 +531,6 @@ function webgl_start() {
 	            clearTimeout(id);
 	        };
 	}());
-
-	canvas.onmousedown = handleMouseDown;
-	document.onmouseup = handleMouseUp;
-	document.onmousemove = handleMouseMove;
 
 	tick();
 }
