@@ -146,7 +146,7 @@
 	<script src="webgl.js"></script>
 
 	<!-- These are not javascript, they are GLSL shader programs! Only written here for convenience at the moment-->
-	<script id="shader-vs" type="x-shader/x-vertex">
+	<script id="per-vertex-lighting-vs" type="x-shader/x-vertex">
 		attribute vec3 aVertexPosition;
 		attribute vec2 aTextureCoord;
 		attribute vec3 aVertexNormal;
@@ -182,17 +182,85 @@
 			}
 		}
 	</script>
-	<script id="shader-fs" type="x-shader/x-fragment">
+	<script id="per-vertex-lighting-fs" type="x-shader/x-fragment">
 		precision mediump float;
 
+		uniform bool uUseTextures;
 		uniform sampler2D uSampler;
 
 		varying vec2 vTextureCoord;
 		varying vec3 vLightWeighting;
 
 		void main(void){
-			vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-			gl_FragColor = vec4(textureColor.rgb * vLightWeighting, textureColor.a);
+			vec4 fragmentColor;
+			if(uUseTextures){
+				fragmentColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+			}
+			else{
+				fragmentColor = vec4(1.0,1.0,1.0,1.0);
+			}
+			gl_FragColor = vec4(fragmentColor.rgb * vLightWeighting, fragmentColor.a);
+		}
+	</script>
+
+	<script id="per-fragment-lighting-vs" type="x-shader/x-vertex">
+		attribute vec3 aVertexPosition;
+		attribute vec2 aTextureCoord;
+		attribute vec3 aVertexNormal;
+
+		uniform mat4 uMVMatrix;
+		uniform mat4 uPMatrix;
+		uniform mat3 uNMatrix;
+
+		varying vec2 vTextureCoord;
+		varying vec3 vTransformedNormal;
+		varying vec4 vPosition;
+
+		void main(void){
+			vPosition = uMVMatrix * vec4(aVertexPosition, 1.0);
+			gl_Position = uPMatrix * vPosition;
+			vTextureCoord = aTextureCoord;
+			vTransformedNormal = uNMatrix * aVertexNormal;
+		}
+	</script>
+	<script id="per-fragment-lighting-fs" type="x-shader/x-fragment">
+		precision mediump float;
+
+		uniform bool uUseLighting;
+		uniform bool uUseTextures;
+
+		uniform vec3 uAmbientColor;
+
+		uniform vec3 uPointLightingLocation;
+		uniform vec3 uPointLightingColor;
+
+		uniform sampler2D uSampler;
+
+		varying vec2 vTextureCoord;
+		varying vec3 vTransformedNormal;
+		varying vec4 vPosition;
+
+		void main(void){
+			vec3 lightWeighting;
+			if(!uUseLighting){
+				lightWeighting = vec3(1.0,1.0,1.0);
+			}
+			else{
+				vec3 lightDirection = normalize(uPointLightingLocation - vPosition.xyz);
+
+				float directionalLightWeighting = max(dot(normalize(vTransformedNormal), lightDirection), 0.0);
+				lightWeighting = uAmbientColor + uPointLightingColor*directionalLightWeighting;
+			}
+
+			vec4 fragmentColor;
+			if(uUseTextures){
+				fragmentColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+			}
+			else{
+				fragmentColor = vec4(1.0,1.0,1.0,1.0);
+			}
+
+			gl_FragColor = vec4(fragmentColor.rgb * lightWeighting, fragmentColor.a);
 		}
 	</script>
 </head>
@@ -224,13 +292,15 @@
 
   	<div class="control_forms">
   		<ul>
-  			<li><h3>Activate Lighting</h3></li>
-		  	<li><input type="checkbox" id="lighting" checked /></li>
+  			<li><h3>Lighting Parameters</h3></li>
+		  	<li>Enable Lighting: <input type="checkbox" id="lighting" checked /></li>
+		  	<li>Per-fragment Lighting: <input type="checkbox" id="per_fragment_lighting" checked /></li>
+		  	<li>Enable Textures: <input type="checkbox" id="texturing" checked /></li>
   			<li><h3>Light Position</h3></li>
 		  	<li>
 		  		X: <input type="text" id="lightPositionX" value="0" />
 			  	Y: <input type="text" id="lightPositionY" value="0" />
-			  	Z: <input type="text" id="lightPositionZ" value="-12" />
+			  	Z: <input type="text" id="lightPositionZ" value="-6" />
 			  </li>
   			<li><h3>Light Colour</h3></li>
 		  	<li>

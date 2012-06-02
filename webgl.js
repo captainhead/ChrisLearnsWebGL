@@ -4,7 +4,9 @@ var mvMatrixStack = []; // Save and restore previous modelview matrices
 var mvMatrix = mat4.create(); // Modelview matrix
 var pMatrix = mat4.create(); // Projection matrix
 
-var shaderProgram;
+var currentProgram;
+var perVertexProgram;
+var perFragmentProgram;
 
 var moonTexture;
 var moonVertexPositionBuffer;
@@ -258,10 +260,15 @@ function initBuffers(){
 
 
 function initShaders(){
-	var fragmentShader = getShader(gl, "shader-fs");
-	var vertexShader = getShader(gl, "shader-vs");
+	perVertexProgram = createProgram("per-vertex-lighting-fs", "per-vertex-lighting-vs");
+	perFragmentProgram = createProgram("per-fragment-lighting-fs", "per-fragment-lighting-vs");
+}
 
-	shaderProgram = gl.createProgram();
+function createProgram(fragmentShaderId, vertexShaderId){
+	var fragmentShader = getShader(gl, fragmentShaderId);
+	var vertexShader = getShader(gl, vertexShaderId);
+
+	var shaderProgram = gl.createProgram();
 	gl.attachShader(shaderProgram, vertexShader);
 	gl.attachShader(shaderProgram, fragmentShader);
 	gl.linkProgram(shaderProgram);
@@ -289,6 +296,9 @@ function initShaders(){
 	shaderProgram.ambientColorUniform = gl.getUniformLocation(shaderProgram, "uAmbientColor");
 	shaderProgram.pointLightingLocationUniform = gl.getUniformLocation(shaderProgram, "uPointLightingLocation");
 	shaderProgram.pointLightingColorUniform = gl.getUniformLocation(shaderProgram, "uPointLightingColor");
+	shaderProgram.useTexturesUniform = gl.getUniformLocation(shaderProgram, "uUseTextures");
+
+	return shaderProgram;
 }
 
 function getShader(gl, id){
@@ -364,14 +374,14 @@ function handleLoadedTexture(texture){
 
 
 function setMatrixUniforms(){
-	gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
-	gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
+	gl.uniformMatrix4fv(currentProgram.pMatrixUniform, false, pMatrix);
+	gl.uniformMatrix4fv(currentProgram.mvMatrixUniform, false, mvMatrix);
 
 	// Reverse the effects of the projection and modelview matrix have on the normal vector
 	var normalMatrix = mat3.create();
 	mat4.toInverseMat3(mvMatrix, normalMatrix);
 	mat3.transpose(normalMatrix);
-	gl.uniformMatrix3fv(shaderProgram.nMatrixUniform, false, normalMatrix);
+	gl.uniformMatrix3fv(currentProgram.nMatrixUniform, false, normalMatrix);
 }
 
 
@@ -416,54 +426,69 @@ function drawScene(){
 
 	mat4.perspective(45, gl.viewportWidth/gl.viewportHeight, 0.1, 100.0, pMatrix);
 
+
+	var perFragmentLighting = document.getElementById("per_fragment_lighting").checked;
+	if(perFragmentLighting){
+		currentProgram = perFragmentProgram;
+	}
+	else{
+		currentProgram = perVertexProgram;
+	}
+	gl.useProgram(currentProgram);
+
 	var lighting = document.getElementById("lighting").checked;
-	gl.uniform1i(shaderProgram.useLightingUniform, lighting);
+	gl.uniform1i(currentProgram.useLightingUniform, lighting);
 	if(lighting){
 		// Light position
 		gl.uniform3f(
-			shaderProgram.pointLightingLocationUniform,
+			currentProgram.pointLightingLocationUniform,
 			parseFloat(document.getElementById("lightPositionX").value),
 			parseFloat(document.getElementById("lightPositionY").value),
 			parseFloat(document.getElementById("lightPositionZ").value)
 		);
 		// Point light colour
 		gl.uniform3f(
-			shaderProgram.pointLightingColorUniform,
+			currentProgram.pointLightingColorUniform,
 			parseFloat(document.getElementById("pointR").value),
 			parseFloat(document.getElementById("pointG").value),
 			parseFloat(document.getElementById("pointB").value)
 		);
 		// Ambient light colour
 		gl.uniform3f(
-			shaderProgram.ambientColorUniform,
+			currentProgram.ambientColorUniform,
 			parseFloat(document.getElementById("ambientR").value),
 			parseFloat(document.getElementById("ambientG").value),
 			parseFloat(document.getElementById("ambientB").value)
 		);
 	}
 
+	var useTexturing = document.getElementById("texturing").checked;
+	gl.uniform1i(currentProgram.useTexturesUniform, useTexturing);
+
+
 	mat4.identity(mvMatrix);
 
-	mat4.translate(mvMatrix, [0,0,-12]);
+	mat4.translate(mvMatrix, [0,0,-6]);
+	mat4.rotate(mvMatrix, degToRad(45), [1,0,0]);
 	mat4.multiply(mvMatrix, rotationMatrix);
 
 	// Draw the moon
 	mvPushMatrix();
 
-	mat4.translate(mvMatrix, [4,0,0]);
+	mat4.translate(mvMatrix, [2.5,0,0]);
 
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_2D, moonTexture);
-	gl.uniform1i(shaderProgram.samplerUniform, 0);
+	gl.uniform1i(currentProgram.samplerUniform, 0);
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, moonVertexPositionBuffer);
-	gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, moonVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	gl.vertexAttribPointer(currentProgram.vertexPositionAttribute, moonVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, moonVertexTextureCoordBuffer);
-	gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, moonVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	gl.vertexAttribPointer(currentProgram.textureCoordAttribute, moonVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, moonVertexNormalBuffer);
-	gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, moonVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	gl.vertexAttribPointer(currentProgram.vertexNormalAttribute, moonVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, moonVertexIndexBuffer);
 	setMatrixUniforms();
@@ -473,20 +498,20 @@ function drawScene(){
 	// Draw the box
 	mvPopMatrix();
 
-	mat4.translate(mvMatrix, [-4,0,0]);
+	mat4.translate(mvMatrix, [-1.5,0,0]);
 
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_2D, boxTexture);
-	gl.uniform1i(shaderProgram.samplerUniform, 0);
+	gl.uniform1i(currentProgram.samplerUniform, 0);
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, boxVertexPositionBuffer);
-	gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, boxVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	gl.vertexAttribPointer(currentProgram.vertexPositionAttribute, boxVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, boxVertexTextureCoordBuffer);
-	gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, boxVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	gl.vertexAttribPointer(currentProgram.textureCoordAttribute, boxVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, boxVertexNormalBuffer);
-	gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, boxVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	gl.vertexAttribPointer(currentProgram.vertexNormalAttribute, boxVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, boxVertexIndexBuffer);
 	setMatrixUniforms();
