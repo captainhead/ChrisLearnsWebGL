@@ -146,64 +146,7 @@
 	<script src="webgl.js"></script>
 
 	<!-- These are not javascript, they are GLSL shader programs! Only written here for convenience at the moment-->
-	<script id="per-vertex-lighting-vs" type="x-shader/x-vertex">
-		attribute vec3 aVertexPosition;
-		attribute vec2 aTextureCoord;
-		attribute vec3 aVertexNormal;
-
-		uniform mat4 uMVMatrix;
-		uniform mat4 uPMatrix;
-		uniform mat3 uNMatrix;
-
-		uniform vec3 uAmbientColor;
-
-		uniform vec3 uPointLightingLocation;
-		uniform vec3 uPointLightingColor;
-
-		uniform bool uUseLighting;
-
-		varying vec2 vTextureCoord;
-		varying vec3 vLightWeighting;
-
-		void main(void){
-			vec4 mvPosition = uMVMatrix * vec4(aVertexPosition, 1.0);
-			gl_Position = uPMatrix * mvPosition;
-
-			vTextureCoord = aTextureCoord;
-
-			if(!uUseLighting){
-				vLightWeighting = vec3(1.0, 1.0, 1.0);
-			}
-			else {
-				vec3 lightDirection = normalize(uPointLightingLocation - mvPosition.xyz);
-				vec3 transformedNormal = uNMatrix * aVertexNormal;
-				float directionalLightWeighting = max(dot(transformedNormal, lightDirection), 0.0);
-				vLightWeighting = uAmbientColor + uPointLightingColor*directionalLightWeighting;
-			}
-		}
-	</script>
-	<script id="per-vertex-lighting-fs" type="x-shader/x-fragment">
-		precision mediump float;
-
-		uniform bool uUseTextures;
-		uniform sampler2D uSampler;
-
-		varying vec2 vTextureCoord;
-		varying vec3 vLightWeighting;
-
-		void main(void){
-			vec4 fragmentColor;
-			if(uUseTextures){
-				fragmentColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-			}
-			else{
-				fragmentColor = vec4(1.0,1.0,1.0,1.0);
-			}
-			gl_FragColor = vec4(fragmentColor.rgb * vLightWeighting, fragmentColor.a);
-		}
-	</script>
-
-	<script id="per-fragment-lighting-vs" type="x-shader/x-vertex">
+	<script id="vertex_shader" type="x-shader/x-vertex">
 		attribute vec3 aVertexPosition;
 		attribute vec2 aTextureCoord;
 		attribute vec3 aVertexNormal;
@@ -223,15 +166,19 @@
 			vTransformedNormal = uNMatrix * aVertexNormal;
 		}
 	</script>
-	<script id="per-fragment-lighting-fs" type="x-shader/x-fragment">
+	<script id="fragment_shader" type="x-shader/x-fragment">
 		precision mediump float;
 
+		uniform bool uUseSpecularHighlighting;
 		uniform bool uUseLighting;
 		uniform bool uUseTextures;
+
+		uniform float uShininess;
 
 		uniform vec3 uAmbientColor;
 
 		uniform vec3 uPointLightingLocation;
+		uniform vec3 uPointLightingSpecularColor;
 		uniform vec3 uPointLightingColor;
 
 		uniform sampler2D uSampler;
@@ -247,9 +194,20 @@
 			}
 			else{
 				vec3 lightDirection = normalize(uPointLightingLocation - vPosition.xyz);
+				vec3 normal = normalize(vTransformedNormal);
 
-				float directionalLightWeighting = max(dot(normalize(vTransformedNormal), lightDirection), 0.0);
-				lightWeighting = uAmbientColor + uPointLightingColor*directionalLightWeighting;
+				float specularLightWeighting = 0.0;
+				if(uUseSpecularHighlighting){
+					vec3 eyeDirection = normalize(-vPosition.xyz);
+					vec3 reflectionDirection = reflect(-lightDirection, normal);
+					specularLightWeighting = pow(max(dot(reflectionDirection, eyeDirection), 0.0), uShininess);
+				}
+
+				float diffuseLightWeighting = max(dot(normal, lightDirection), 0.0);
+
+				lightWeighting = uAmbientColor
+					+ uPointLightingSpecularColor*specularLightWeighting
+					+ uPointLightingColor*diffuseLightWeighting;
 			}
 
 			vec4 fragmentColor;
@@ -293,16 +251,23 @@
   	<div class="control_forms">
   		<ul>
   			<li><h3>Lighting Parameters</h3></li>
-		  	<li>Enable Lighting: <input type="checkbox" id="lighting" checked /></li>
-		  	<li>Per-fragment Lighting: <input type="checkbox" id="per_fragment_lighting" checked /></li>
-		  	<li>Enable Textures: <input type="checkbox" id="texturing" checked /></li>
+  			<li><input type="checkbox" id="specular_highlighting" checked /> Enable Specular Highlight</li>
+  			<li>Shininess: <input type="text" id="shininess" value="32.0" /></li>
+		  	<li><input type="checkbox" id="lighting" checked /> Enable Lighting</li>
+		  	<li><input type="checkbox" id="texturing" checked /> Enable Textures</li>
   			<li><h3>Light Position</h3></li>
 		  	<li>
-		  		X: <input type="text" id="lightPositionX" value="0" />
-			  	Y: <input type="text" id="lightPositionY" value="0" />
-			  	Z: <input type="text" id="lightPositionZ" value="-6" />
+		  		X: <input type="text" id="lightPositionX" value="-3" />
+			  	Y: <input type="text" id="lightPositionY" value="3" />
+			  	Z: <input type="text" id="lightPositionZ" value="0" />
 			  </li>
-  			<li><h3>Light Colour</h3></li>
+  			<li><h3>Light Specular Colour</h3></li>
+		  	<li>
+		  		R: <input type="text" id="pointSpecularR" value="0.8" />
+			  	G: <input type="text" id="pointSpecularG" value="0.8" />
+			  	B: <input type="text" id="pointSpecularB" value="0.8" />
+			  </li>
+  			<li><h3>Light Diffuse Colour</h3></li>
 		  	<li>
 		  		R: <input type="text" id="pointR" value="0.8" />
 			  	G: <input type="text" id="pointG" value="0.8" />
